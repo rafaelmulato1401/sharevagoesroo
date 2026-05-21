@@ -57,9 +57,7 @@ window.dispatchEvent(new Event('firebaseReady'));
   .fb-dot.err{background:#ef4444;}
   .fb-dot.loading{background:#f0a500;animation:pulse 1s infinite;}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .fb-save-btn{background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.4);border-radius:6px;padding:5px 12px;color:#86efac;font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:all .2s;display:none;}
-  .fb-save-btn:hover{background:rgba(34,197,94,.35);}
-  .fb-save-btn.show{display:block;}
+
   .last-update span{color:var(--gold-light);}
   /* PAGES */
   .page{display:none;padding:20px;animation:fadeIn .2s ease;}
@@ -228,7 +226,6 @@ window.dispatchEvent(new Event('firebaseReady'));
   </div>
   <div class="nav-right">
     <div class="fb-status"><div class="fb-dot loading" id="fbDot"></div><span id="fbLabel">Firebase…</span></div>
-    <button class="fb-save-btn" id="fbSaveBtn" onclick="saveToFirebase()">☁ Salvar no Firebase</button>
     <button class="btn-export" onclick="openExport()" title="Gerar imagem consolidada para e-mail">📧 Gerar Imagem E-mail</button>
     <div class="last-update">Atualizado: <span id="lastUpdate">—</span></div>
   </div>
@@ -1277,72 +1274,51 @@ setTimeout(() => {
 }, 8000);
 
 async function saveToFirebase() {
-  if (!firebaseReady || !window._db) {
-    alert('Firebase não está conectado ainda. Aguarde.');
-    return;
-  }
-  const btn = document.getElementById('fbSaveBtn');
-  btn.textContent = '⏳ Salvando…';
+  if (!firebaseReady || !window._db) return;
+  fbDot('loading', 'Salvando…');
 
   try {
     const db = window._db;
     const { doc, setDoc } = window._fsLib;
 
-    // Save teciap data in chunks (Firestore has 1MB doc limit)
     if (teciapRows.length > 0) {
       const chunkSize = 400;
       const chunks = [];
-      for (let i = 0; i < teciapRows.length; i += chunkSize) {
+      for (let i = 0; i < teciapRows.length; i += chunkSize)
         chunks.push(teciapRows.slice(i, i + chunkSize));
-      }
-      // Save metadata doc
+
       await setDoc(doc(db, 'shareData', 'teciap_meta'), {
         totalRows: teciapRows.length,
         chunks: chunks.length,
         savedAt: new Date().toISOString(),
         origens: [...new Set(teciapRows.map(r => r.origem))],
       });
-      // Save each chunk
-      for (let i = 0; i < chunks.length; i++) {
-        await setDoc(doc(db, 'shareData', `teciap_chunk_${i}`), {
-          rows: chunks[i]
-        });
-      }
+      for (let i = 0; i < chunks.length; i++)
+        await setDoc(doc(db, 'shareData', `teciap_chunk_${i}`), { rows: chunks[i] });
     }
 
-    // Save ultra data
     if (ultraRows.length > 0) {
       const chunkSize = 400;
       const chunks = [];
-      for (let i = 0; i < ultraRows.length; i += chunkSize) {
+      for (let i = 0; i < ultraRows.length; i += chunkSize)
         chunks.push(ultraRows.slice(i, i + chunkSize));
-      }
+
       await setDoc(doc(db, 'shareData', 'ultra_meta'), {
         totalRows: ultraRows.length,
         chunks: chunks.length,
         savedAt: new Date().toISOString(),
       });
-      for (let i = 0; i < chunks.length; i++) {
-        await setDoc(doc(db, 'shareData', `ultra_chunk_${i}`), {
-          rows: chunks[i]
-        });
-      }
+      for (let i = 0; i < chunks.length; i++)
+        await setDoc(doc(db, 'shareData', `ultra_chunk_${i}`), { rows: chunks[i] });
     }
 
-    btn.textContent = '✅ Salvo!';
-    btn.style.background = 'rgba(34,197,94,.35)';
-    fbDot('ok', 'Dados salvos');
-    setTimeout(() => {
-      btn.textContent = '☁ Salvar no Firebase';
-      btn.style.background = '';
-    }, 3000);
+    fbDot('ok', '☁ Dados salvos');
+    // Update last update label
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
 
   } catch(e) {
     console.error('Firebase save error:', e);
-    btn.textContent = '❌ Erro ao salvar';
-    fbDot('err', 'Erro Firebase');
-    alert('Erro ao salvar no Firebase: ' + e.message);
-    setTimeout(() => { btn.textContent = '☁ Salvar no Firebase'; }, 3000);
+    fbDot('err', 'Erro ao salvar');
   }
 }
 
@@ -1404,10 +1380,10 @@ async function autoLoadFromFirebase() {
   }
 }
 
-// Show save button after processing
+// Auto-save after processing (no button needed)
 function showSaveButton() {
-  const btn = document.getElementById('fbSaveBtn');
-  if (btn) btn.classList.add('show');
+  // Auto-save silently
+  setTimeout(() => saveToFirebase(), 800);
 }
 
 // ═══════════ INIT ═══════════
