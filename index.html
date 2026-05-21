@@ -1333,15 +1333,8 @@ async function autoLoadFromFirebase() {
           teciapRows = rows;
           loaded = true;
           document.getElementById('lastUpdate').textContent = new Date(meta.savedAt).toLocaleString('pt-BR');
-          // Populate month selector state
           const allMonths = [...new Set(rows.map(r=>getMonthKey(r.data)).filter(Boolean))].sort();
           teciapSelectedMonth = allMonths[allMonths.length-1];
-          // Render after short delay so DOM is ready
-          setTimeout(() => {
-            renderTeciap(true);
-            const tabs = document.querySelectorAll('.nav-tab');
-            if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap ☁';
-          }, 100);
         }
       }
     } catch(e) { console.warn('Teciap load error:', e); }
@@ -1365,18 +1358,27 @@ async function autoLoadFromFirebase() {
           loaded = true;
           const allMonthsU = [...new Set(rows.map(r=>getMonthKey(r.data)).filter(Boolean))].sort();
           ultraSelectedMonth = allMonthsU[allMonthsU.length-1];
-          setTimeout(() => {
-            renderUltra(true);
-            const tabs = document.querySelectorAll('.nav-tab');
-            if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo ☁';
-          }, 200);
         }
       }
     } catch(e) { console.warn('Ultra load error:', e); }
 
     if (loaded) {
       fbDot('ok', '☁ Dados carregados');
-      setTimeout(() => showPage('teciap'), 150);
+      // CRITICAL: show page FIRST so charts render in a visible element
+      showPage('teciap');
+      // Then render — page is now visible so Chart.js can calc dimensions
+      setTimeout(() => {
+        if (teciapRows.length > 0) {
+          renderTeciap(true);
+          const tabs = document.querySelectorAll('.nav-tab');
+          if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap ☁';
+        }
+        if (ultraRows.length > 0) {
+          renderUltra(true);
+          const tabs = document.querySelectorAll('.nav-tab');
+          if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo ☁';
+        }
+      }, 200);
     } else {
       fbDot('ok', 'Firebase OK');
     }
