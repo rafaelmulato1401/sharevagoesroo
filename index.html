@@ -560,6 +560,8 @@ async function processTeciap() {
   const btn = document.getElementById('btnTeciap');
   btn.disabled = true; btn.textContent = '⏳ Processando…';
   setAlert('alertTeciap','info','Lendo arquivos…');
+  // Merge with existing Firebase data (keep what was already saved)
+  const existingTeciap = [...teciapRows];
   teciapRows = [];
   let errs = 0;
 
@@ -581,7 +583,19 @@ async function processTeciap() {
     }
   }
 
-  if (teciapRows.length === 0) {
+  // ── MERGE com existentes + DEDUP ──
+  teciapRows = [...existingTeciap, ...teciapRows];
+  {
+    const before = teciapRows.length;
+    const seen = new Set();
+    teciapRows = teciapRows.filter(r => {
+      const k = r.placa+'|'+r.data+'|'+r.origem;
+      if(seen.has(k)) return false; seen.add(k); return true;
+    });
+    window._dedupRemoved = before - teciapRows.length;
+  }
+
+    if (teciapRows.length === 0) {
     setAlert('alertTeciap','err','Nenhum dado válido encontrado.');
     btn.disabled=false; btn.textContent='⚡ Processar Teciap'; return;
   }
@@ -598,6 +612,7 @@ async function processUltra() {
   const btn = document.getElementById('btnUltra');
   btn.disabled=true; btn.textContent='⏳ Processando…';
   setAlert('alertUltra','info','Lendo arquivo…');
+  const existingUltra = [...ultraRows];
   ultraRows = [];
   let errs=0;
 
@@ -622,8 +637,24 @@ async function processUltra() {
     setAlert('alertUltra','err','Nenhum dado válido encontrado.');
     btn.disabled=false; btn.textContent='⚡ Processar Ultracargo'; return;
   }
+
+  // ── MERGE com dados existentes ──
+  ultraRows = [...existingUltra, ...ultraRows];
+
+  // ── DEDUPLICAÇÃO Ultracargo: mesma data + terminal ──
+  const beforeDedupU = ultraRows.length;
+  const seenU = new Set();
+  ultraRows = ultraRows.filter(r => {
+    const key = `${r.data}|${r.terminal}`;
+    if (seenU.has(key)) return false;
+    seenU.add(key);
+    return true;
+  });
+  const removedU = beforeDedupU - ultraRows.length;
+
   document.getElementById('lastUpdate').textContent=new Date().toLocaleString('pt-BR');
-  setAlert('alertUltra','ok','✅ '+ultraRows.length+' registros carregados'+(errs?' ('+errs+' erro(s))':'')+'.');
+  const dedupMsgU = removedU > 0 ? ` <strong>${removedU} duplicatas removidas.</strong>` : ' Sem duplicatas.';
+  setAlert('alertUltra','ok','✅ '+ultraRows.length+' registros únicos carregados'+(errs?' ('+errs+' erro(s))':'')+'.'+dedupMsgU);
   btn.textContent='✅ Processado';
   showSaveButton();
   renderUltra();
