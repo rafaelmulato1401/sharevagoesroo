@@ -866,38 +866,42 @@ function renderTeciap(firstTime = true) {
     </div>
   `;
 
-  // Wait for DOM to paint before rendering charts
-  setTimeout(() => renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth), 80);
+  renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth);
 }
 
 function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
+  // Retry until both canvases exist in DOM
+  const tryRender = (attempts) => {
+    const ctx1 = document.getElementById('chartTeciapMes');
+    const ctx2 = document.getElementById('chartTeciapAno');
+    if ((!allDays.length || ctx1) && ctx2) {
+      _doRenderTeciap(ctx1, ctx2, rows, allDays, allMonths, rowsMes, curMonth);
+    } else if (attempts > 0) {
+      setTimeout(() => tryRender(attempts - 1), 120);
+    }
+  };
+  tryRender(15);
+}
+
+function _doRenderTeciap(ctx1, ctx2, rows, allDays, allMonths, rowsMes, curMonth) {
   const CHART_OPTS = (y2max) => ({
     responsive:true, maintainAspectRatio:false,
     layout:{padding:{top:22}},
     plugins:{
       legend:{
-        position:'bottom',
-        align:'center',
-        labels:{
-          font:{family:'Barlow',size:11,weight:'600'},
-          color:'#6b7a99',
-          boxWidth:14, boxHeight:10, padding:16,
-          usePointStyle:false
-        }
+        position:'bottom', align:'center',
+        labels:{font:{family:'Barlow',size:11,weight:'600'},color:'#6b7a99',boxWidth:14,boxHeight:10,padding:16}
       },
       tooltip:{
         mode:'index', intersect:false,
-        callbacks:{
-          label:ctx=>{
-            if(ctx.dataset.yAxisID==='y2') return ` ${ctx.dataset.label}: ${ctx.raw}%`;
-            return ` ${ctx.dataset.label}: ${ctx.raw}`;
-          }
-        }
+        callbacks:{label:ctx=>{
+          if(ctx.dataset.yAxisID==='y2') return ` ${ctx.dataset.label}: ${ctx.raw}%`;
+          return ` ${ctx.dataset.label}: ${ctx.raw}`;
+        }}
       },
       datalabels: window._datalabelsLoaded ? {
         display: ctx => ctx.dataset.type === 'bar',
-        anchor:'end', align:'top',
-        offset:-2,
+        anchor:'end', align:'top', offset:-2,
         font:{family:'Barlow Condensed',size:10,weight:'700'},
         color: ctx => ctx.dataset.backgroundColor === '#1a3a6b' ? '#1a3a6b' : '#7a5200',
         formatter: v => v > 0 ? v : ''
@@ -912,20 +916,20 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
   });
 
   // ── MENSAL (diário) ──
-  const ctx1 = document.getElementById('chartTeciapMes');
-  if (ctx1) {
+  if (ctx1 && allDays.length) {
     const inD  = allDays.map(d=>rowsMes.filter(r=>getDay(r.data)===d&&r.player==='INPASA').length);
     const otD  = allDays.map(d=>rowsMes.filter(r=>getDay(r.data)===d&&r.player==='Outros').length);
     const totD = allDays.map((d,i)=>inD[i]+otD[i]);
     const shrD = allDays.map((d,i)=>totD[i]?Math.round(inD[i]/totD[i]*100):0);
+    if (charts.teciapMes) { try{charts.teciapMes.destroy();}catch(e){} }
     charts.teciapMes = new Chart(ctx1, {
       data:{
         labels: allDays,
         datasets:[
-          {type:'bar',  label:'INPASA',         data:inD,  backgroundColor:'#1a3a6b', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
-          {type:'bar',  label:'Outros',          data:otD,  backgroundColor:'#f0a500', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
-          {type:'line', label:'Total',            data:totD, borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, yAxisID:'y',  tension:.3, pointBackgroundColor:'#9b59b6'},
-          {type:'line', label:'Share INPASA (%)',data:shrD, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:2, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4], pointBackgroundColor:'rgba(26,58,107,.5)'},
+          {type:'bar',  label:'INPASA',          data:inD,  backgroundColor:'#1a3a6b', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
+          {type:'bar',  label:'Outros',           data:otD,  backgroundColor:'#f0a500', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
+          {type:'line', label:'Total',             data:totD, borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, yAxisID:'y',  tension:.3, pointBackgroundColor:'#9b59b6'},
+          {type:'line', label:'Share INPASA (%)', data:shrD, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:2, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4]},
         ]
       },
       options: CHART_OPTS(100)
@@ -933,13 +937,13 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
   }
 
   // ── ANUAL (mensal) ──
-  const ctx2 = document.getElementById('chartTeciapAno');
   if (ctx2) {
     const inA  = allMonths.map(mk=>rows.filter(r=>getMonthKey(r.data)===mk&&r.player==='INPASA').length);
     const otA  = allMonths.map(mk=>rows.filter(r=>getMonthKey(r.data)===mk&&r.player==='Outros').length);
     const totA = allMonths.map((mk,i)=>inA[i]+otA[i]);
     const shrA = allMonths.map((mk,i)=>totA[i]?Math.round(inA[i]/totA[i]*100):0);
     const labels = allMonths.map(mk=>MESES_PT[parseInt(mk.split('-')[1])-1]);
+    if (charts.teciapAno) { try{charts.teciapAno.destroy();}catch(e){} }
     charts.teciapAno = new Chart(ctx2, {
       data:{
         labels,
@@ -947,7 +951,7 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
           {type:'bar',  label:'INPASA',          data:inA,  backgroundColor:'#1a3a6b', borderRadius:4, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
           {type:'bar',  label:'Outros',           data:otA,  backgroundColor:'#f0a500', borderRadius:4, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
           {type:'line', label:'Total',             data:totA, borderColor:'#9b59b6', borderWidth:2, pointRadius:4, fill:false, yAxisID:'y',  tension:.3, pointBackgroundColor:'#9b59b6'},
-          {type:'line', label:'Share INPASA (%)', data:shrA, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:3, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4], pointBackgroundColor:'rgba(26,58,107,.5)'},
+          {type:'line', label:'Share INPASA (%)', data:shrA, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:3, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4]},
         ]
       },
       options: CHART_OPTS(100)
@@ -955,109 +959,22 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
   }
 }
 
-// ═══════════ RENDER ULTRA ═══════════
-let ultraSelectedMonth = null;
 
-function onMesUltraChange() {
-  ultraSelectedMonth = document.getElementById('selMesUltra').value || null;
-  renderUltra(false);
-}
-
-function renderUltra(firstTime = true) {
-  if (firstTime) destroyCharts();
-  const rows = ultraRows;
-  const cont = document.getElementById('ultraContent');
-  if (!rows.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sem dados.</div>'; return; }
-
-  const allMonths = [...new Set(rows.map(r=>getMonthKey(r.data)).filter(Boolean))].sort();
-
-  if (firstTime) {
-    const sel = document.getElementById('selMesUltra');
-    sel.innerHTML = allMonths.map(mk=>`<option value="${mk}">${getMesLabel(mk)}</option>`).join('');
-    ultraSelectedMonth = allMonths[allMonths.length-1];
-    sel.value = ultraSelectedMonth;
-    document.getElementById('filterUltra').style.display = 'flex';
-  }
-
-  const curMonth = ultraSelectedMonth || allMonths[allMonths.length-1];
-  const rowsMes  = rows.filter(r=>getMonthKey(r.data)===curMonth);
-  const allDays  = [...new Set(rowsMes.map(r=>getDay(r.data)).filter(Boolean))].sort((a,b)=>a-b);
-
-  const fatMes  = rowsMes.reduce((s,r)=>s+r.fatVT,0);
-  const progMes = rowsMes.reduce((s,r)=>s+r.progVT,0);
-  const encMes  = rowsMes.reduce((s,r)=>s+r.encVT,0);
-  const fatAno  = rows.reduce((s,r)=>s+r.fatVT,0);
-
-  let monthRowsHtml = allMonths.map(mk=>{
-    const mr=rows.filter(r=>getMonthKey(r.data)===mk);
-    const f=mr.reduce((s,r)=>s+r.fatVT,0);
-    const p=mr.reduce((s,r)=>s+r.progVT,0);
-    const e=mr.reduce((s,r)=>s+r.encVT,0);
-    return `<tr${mk===curMonth?' style="background:rgba(240,165,0,.07)"':''}>
-      <td>${getMesLabel(mk)}${mk===curMonth?' <span style="font-size:9px;color:var(--gold);font-weight:700">◀</span>':''}</td>
-      <td>${p||'-'}</td><td>${e||'-'}</td><td style="font-weight:700">${f||'-'}</td></tr>`;
-  }).join('');
-
-  if (!firstTime) {
-    if(charts.ultraMes){try{charts.ultraMes.destroy();}catch(e){} delete charts.ultraMes;}
-  }
-
-  cont.innerHTML = `
-    <div class="sec-title">Dashboard <span class="g">Ultracargo</span></div>
-    <div class="gold-bar"></div>
-
-    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Mês — ${getMesLabel(curMonth)}</div>
-    <div class="kpi-row">
-      <div class="kpi" style="--kc:var(--blue)"><div class="kpi-label">Vagões Mês (Faturado)</div><div class="kpi-value">${fmt(fatMes)}</div><div class="kpi-sub">Ultracargo — INPASA</div></div>
-      <div class="kpi" style="--kc:#0e6674"><div class="kpi-label">Programado Mês</div><div class="kpi-value">${fmt(progMes)}</div><div class="kpi-sub">VT programados</div></div>
-      <div class="kpi" style="--kc:var(--gold)"><div class="kpi-label">Encostado Mês</div><div class="kpi-value">${fmt(encMes)}</div><div class="kpi-sub">VT encostados</div></div>
-      <div class="kpi" style="--kc:var(--blue-mid)"><div class="kpi-label">Faturado Ano</div><div class="kpi-value">${fmt(fatAno)}</div><div class="kpi-sub">Acumulado</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Movimentação Diária — <span>${getMesLabel(curMonth)}</span></div>
-      ${allDays.length ? `<div style="overflow-x:auto;margin-bottom:10px">
-        <table class="tbl" style="min-width:500px">
-          <thead><tr><th style="text-align:left">Métrica</th>${allDays.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
-          <tbody>
-            <tr><td style="text-align:left"><span class="b b-i">Prog.</span></td>${allDays.map(d=>{const dr=rowsMes.filter(r=>getDay(r.data)===d);return`<td>${dr.reduce((s,r)=>s+r.progVT,0)||'-'}</td>`;}).join('')}</tr>
-            <tr><td style="text-align:left"><span class="b" style="background:rgba(14,102,116,.12);color:#0e6674">Enc.</span></td>${allDays.map(d=>{const dr=rowsMes.filter(r=>getDay(r.data)===d);return`<td>${dr.reduce((s,r)=>s+r.encVT,0)||'-'}</td>`;}).join('')}</tr>
-            <tr class="tr-total"><td>Fat.</td>${allDays.map(d=>{const dr=rowsMes.filter(r=>getDay(r.data)===d);return`<td>${dr.reduce((s,r)=>s+r.fatVT,0)||'-'}</td>`;}).join('')}</tr>
-          </tbody>
-        </table>
-      </div>` : '<div style="color:var(--text3);font-size:12px;margin-bottom:10px">Sem dados diários.</div>'}
-      <div class="chart-wrap-lg"><canvas id="chartUltraMes"></canvas></div>
-    </div>
-
-    <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;margin-top:4px">Acumulado Ano</div>
-    <div class="kpi-row">
-      <div class="kpi" style="--kc:var(--blue)"><div class="kpi-label">Vagões Ultracargo Ano</div><div class="kpi-value">${fmt(fatAno)}</div><div class="kpi-sub">Faturado — INPASA</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Movimentação Anual de Vagões — <span>Ultracargo</span></div>
-      <div style="overflow-x:auto;margin-bottom:10px">
-        <table class="tbl">
-          <thead><tr><th>Player</th>${allMonths.map(mk=>`<th>${MESES_PT[parseInt(mk.split('-')[1])-1]}</th>`).join('')}</tr></thead>
-          <tbody>
-            <tr><td><span class="b b-i">INPASA (Fat.)</span></td>${allMonths.map(mk=>{const v=rows.filter(r=>getMonthKey(r.data)===mk).reduce((s,r)=>s+r.fatVT,0);return`<td>${v||'-'}</td>`;}).join('')}</tr>
-          </tbody>
-        </table>
-      </div>
-      <div style="overflow-x:auto;margin-bottom:10px">
-        <table class="tbl"><thead><tr><th>Mês</th><th>Programado</th><th>Encostado</th><th>Faturado</th></tr></thead>
-        <tbody>${monthRowsHtml}</tbody>
-        <tr class="tr-total"><td>Total</td><td>${fmt(rows.reduce((s,r)=>s+r.progVT,0))}</td><td>${fmt(rows.reduce((s,r)=>s+r.encVT,0))}</td><td>${fmt(fatAno)}</td></tr>
-        </table>
-      </div>
-      <div class="chart-wrap-lg"><canvas id="chartUltraAno"></canvas></div>
-    </div>
-  `;
-
-  setTimeout(() => renderUltraCharts(rows, allDays, allMonths, rowsMes), 80);
-}
 
 function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
+  const tryRender = (attempts) => {
+    const ctx1 = document.getElementById('chartUltraMes');
+    const ctx2 = document.getElementById('chartUltraAno');
+    if ((!allDays.length || ctx1) && ctx2) {
+      _doRenderUltra(ctx1, ctx2, rows, allDays, allMonths, rowsMes);
+    } else if (attempts > 0) {
+      setTimeout(() => tryRender(attempts - 1), 120);
+    }
+  };
+  tryRender(15);
+}
+
+function _doRenderUltra(ctx1, ctx2, rows, allDays, allMonths, rowsMes) {
   const BAR_OPTS = {
     responsive:true, maintainAspectRatio:false,
     layout:{padding:{top:22}},
@@ -1079,11 +996,11 @@ function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
     }
   };
 
-  const ctx1 = document.getElementById('chartUltraMes');
-  if (ctx1) {
+  if (ctx1 && allDays.length) {
     const fatD  = allDays.map(d=>rowsMes.filter(r=>getDay(r.data)===d).reduce((s,r)=>s+r.fatVT,0));
     const progD = allDays.map(d=>rowsMes.filter(r=>getDay(r.data)===d).reduce((s,r)=>s+r.progVT,0));
     const encD  = allDays.map(d=>rowsMes.filter(r=>getDay(r.data)===d).reduce((s,r)=>s+r.encVT,0));
+    if (charts.ultraMes) { try{charts.ultraMes.destroy();}catch(e){} }
     charts.ultraMes = new Chart(ctx1, {
       type:'bar',
       data:{labels:allDays, datasets:[
@@ -1094,12 +1011,13 @@ function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
       options: BAR_OPTS
     });
   }
-  const ctx2 = document.getElementById('chartUltraAno');
+
   if (ctx2) {
     const fatA  = allMonths.map(mk=>rows.filter(r=>getMonthKey(r.data)===mk).reduce((s,r)=>s+r.fatVT,0));
     const progA = allMonths.map(mk=>rows.filter(r=>getMonthKey(r.data)===mk).reduce((s,r)=>s+r.progVT,0));
     const encA  = allMonths.map(mk=>rows.filter(r=>getMonthKey(r.data)===mk).reduce((s,r)=>s+r.encVT,0));
     const labels = allMonths.map(mk=>MESES_PT[parseInt(mk.split('-')[1])-1]);
+    if (charts.ultraAno) { try{charts.ultraAno.destroy();}catch(e){} }
     charts.ultraAno = new Chart(ctx2, {
       type:'bar',
       data:{labels, datasets:[
