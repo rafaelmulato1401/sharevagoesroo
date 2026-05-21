@@ -922,8 +922,8 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
       data:{
         labels: allDays,
         datasets:[
-          {type:'bar',  label:'INPASA',         data:inD,  backgroundColor:'#1a3a6b', borderRadius:3, yAxisID:'y',  barPercentage:.45, categoryPercentage:.8},
-          {type:'bar',  label:'Outros',          data:otD,  backgroundColor:'#f0a500', borderRadius:3, yAxisID:'y',  barPercentage:.45, categoryPercentage:.8},
+          {type:'bar',  label:'INPASA',         data:inD,  backgroundColor:'#1a3a6b', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
+          {type:'bar',  label:'Outros',          data:otD,  backgroundColor:'#f0a500', borderRadius:3, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
           {type:'line', label:'Total',            data:totD, borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, yAxisID:'y',  tension:.3, pointBackgroundColor:'#9b59b6'},
           {type:'line', label:'Share INPASA (%)',data:shrD, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:2, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4], pointBackgroundColor:'rgba(26,58,107,.5)'},
         ]
@@ -944,8 +944,8 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
       data:{
         labels,
         datasets:[
-          {type:'bar',  label:'INPASA',          data:inA,  backgroundColor:'#1a3a6b', borderRadius:4, yAxisID:'y',  barPercentage:.45, categoryPercentage:.8},
-          {type:'bar',  label:'Outros',           data:otA,  backgroundColor:'#f0a500', borderRadius:4, yAxisID:'y',  barPercentage:.45, categoryPercentage:.8},
+          {type:'bar',  label:'INPASA',          data:inA,  backgroundColor:'#1a3a6b', borderRadius:4, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
+          {type:'bar',  label:'Outros',           data:otA,  backgroundColor:'#f0a500', borderRadius:4, yAxisID:'y',  barPercentage:.9, categoryPercentage:.95},
           {type:'line', label:'Total',             data:totA, borderColor:'#9b59b6', borderWidth:2, pointRadius:4, fill:false, yAxisID:'y',  tension:.3, pointBackgroundColor:'#9b59b6'},
           {type:'line', label:'Share INPASA (%)', data:shrA, borderColor:'rgba(26,58,107,.5)', borderWidth:1.5, pointRadius:3, fill:false, yAxisID:'y2', tension:.3, borderDash:[5,4], pointBackgroundColor:'rgba(26,58,107,.5)'},
         ]
@@ -1087,9 +1087,9 @@ function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
     charts.ultraMes = new Chart(ctx1, {
       type:'bar',
       data:{labels:allDays, datasets:[
-        {label:'Programado', data:progD, backgroundColor:'rgba(26,58,107,.25)', borderRadius:3, barPercentage:.4, categoryPercentage:.8},
-        {label:'Encostado',  data:encD,  backgroundColor:'rgba(14,102,116,.5)',  borderRadius:3, barPercentage:.4, categoryPercentage:.8},
-        {label:'Faturado',   data:fatD,  backgroundColor:'#1a3a6b',              borderRadius:3, barPercentage:.4, categoryPercentage:.8},
+        {label:'Programado', data:progD, backgroundColor:'rgba(26,58,107,.25)', borderRadius:3, barPercentage:.85, categoryPercentage:.95},
+        {label:'Encostado',  data:encD,  backgroundColor:'rgba(14,102,116,.5)',  borderRadius:3, barPercentage:.85, categoryPercentage:.95},
+        {label:'Faturado',   data:fatD,  backgroundColor:'#1a3a6b',              borderRadius:3, barPercentage:.85, categoryPercentage:.95},
       ]},
       options: BAR_OPTS
     });
@@ -1103,9 +1103,9 @@ function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
     charts.ultraAno = new Chart(ctx2, {
       type:'bar',
       data:{labels, datasets:[
-        {label:'Programado', data:progA, backgroundColor:'rgba(26,58,107,.25)', borderRadius:4, barPercentage:.4, categoryPercentage:.8},
-        {label:'Encostado',  data:encA,  backgroundColor:'rgba(14,102,116,.5)',  borderRadius:4, barPercentage:.4, categoryPercentage:.8},
-        {label:'Faturado',   data:fatA,  backgroundColor:'#1a3a6b',              borderRadius:4, barPercentage:.4, categoryPercentage:.8},
+        {label:'Programado', data:progA, backgroundColor:'rgba(26,58,107,.25)', borderRadius:4, barPercentage:.85, categoryPercentage:.95},
+        {label:'Encostado',  data:encA,  backgroundColor:'rgba(14,102,116,.5)',  borderRadius:4, barPercentage:.85, categoryPercentage:.95},
+        {label:'Faturado',   data:fatA,  backgroundColor:'#1a3a6b',              borderRadius:4, barPercentage:.85, categoryPercentage:.95},
       ]},
       options: BAR_OPTS
     });
@@ -1313,18 +1313,30 @@ function fbDot(state, label) {
   if (lbl) lbl.textContent = label;
 }
 
-// Wait for Firebase to be ready
-window.addEventListener('firebaseReady', () => {
-  firebaseReady = true;
-  fbDot('ok', 'Firebase OK');
-  // Auto-load saved data on startup
-  autoLoadFromFirebase();
-});
+// Poll for Firebase ready — more reliable than event in module context
+let _fbPollCount = 0;
+const _fbPoller = setInterval(() => {
+  _fbPollCount++;
+  if (window._firebaseReady && window._db) {
+    clearInterval(_fbPoller);
+    firebaseReady = true;
+    fbDot('ok', 'Firebase OK');
+    autoLoadFromFirebase();
+  } else if (_fbPollCount > 60) { // 6 seconds timeout
+    clearInterval(_fbPoller);
+    fbDot('err', 'Firebase offline');
+  }
+}, 100);
 
-// Timeout fallback if Firebase fails
-setTimeout(() => {
-  if (!firebaseReady) fbDot('err', 'Firebase off');
-}, 8000);
+// Also listen to event as backup
+window.addEventListener('firebaseReady', () => {
+  if (!firebaseReady) {
+    clearInterval(_fbPoller);
+    firebaseReady = true;
+    fbDot('ok', 'Firebase OK');
+    autoLoadFromFirebase();
+  }
+});
 
 async function saveToFirebase() {
   if (!firebaseReady || !window._db) return;
@@ -1377,52 +1389,76 @@ async function saveToFirebase() {
 
 async function autoLoadFromFirebase() {
   if (!firebaseReady || !window._db) return;
-  fbDot('loading', 'Carregando…');
+  fbDot('loading', 'Carregando dados…');
 
   try {
     const db = window._db;
     const { doc, getDoc } = window._fsLib;
+    let loaded = false;
 
-    // Try to load teciap
-    const tecMeta = await getDoc(doc(db, 'shareData', 'teciap_meta'));
-    if (tecMeta.exists()) {
-      const meta = tecMeta.data();
-      let rows = [];
-      for (let i = 0; i < meta.chunks; i++) {
-        const chunk = await getDoc(doc(db, 'shareData', `teciap_chunk_${i}`));
-        if (chunk.exists()) rows = rows.concat(chunk.data().rows);
-      }
-      if (rows.length > 0) {
-        teciapRows = rows;
-        document.getElementById('lastUpdate').textContent = new Date(meta.savedAt).toLocaleString('pt-BR');
-        renderTeciap();
-        // Show firebase badge on nav tab
-        const tabs = document.querySelectorAll('.nav-tab');
-        if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap ☁';
-      }
-    }
+    // ── Load Teciap ──
+    try {
+      const tecMeta = await getDoc(doc(db, 'shareData', 'teciap_meta'));
+      if (tecMeta.exists() && tecMeta.data().totalRows > 0) {
+        const meta = tecMeta.data();
+        fbDot('loading', `Teciap: ${meta.totalRows} vagões…`);
+        let rows = [];
+        // Load chunks in parallel for speed
+        const chunkPromises = [];
+        for (let i = 0; i < meta.chunks; i++) {
+          chunkPromises.push(getDoc(doc(db, 'shareData', `teciap_chunk_${i}`)));
+        }
+        const chunkDocs = await Promise.all(chunkPromises);
+        chunkDocs.forEach(ch => { if (ch.exists()) rows = rows.concat(ch.data().rows); });
 
-    // Try to load ultra
-    const ultMeta = await getDoc(doc(db, 'shareData', 'ultra_meta'));
-    if (ultMeta.exists()) {
-      const meta = ultMeta.data();
-      let rows = [];
-      for (let i = 0; i < meta.chunks; i++) {
-        const chunk = await getDoc(doc(db, 'shareData', `ultra_chunk_${i}`));
-        if (chunk.exists()) rows = rows.concat(chunk.data().rows);
+        if (rows.length > 0) {
+          teciapRows = rows;
+          loaded = true;
+          document.getElementById('lastUpdate').textContent = new Date(meta.savedAt).toLocaleString('pt-BR');
+          // Populate month selector state
+          const allMonths = [...new Set(rows.map(r=>getMonthKey(r.data)).filter(Boolean))].sort();
+          teciapSelectedMonth = allMonths[allMonths.length-1];
+          // Render after short delay so DOM is ready
+          setTimeout(() => {
+            renderTeciap(true);
+            const tabs = document.querySelectorAll('.nav-tab');
+            if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap ☁';
+          }, 100);
+        }
       }
-      if (rows.length > 0) {
-        ultraRows = rows;
-        renderUltra();
-        const tabs = document.querySelectorAll('.nav-tab');
-        if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo ☁';
-      }
-    }
+    } catch(e) { console.warn('Teciap load error:', e); }
 
-    if (teciapRows.length > 0 || ultraRows.length > 0) {
+    // ── Load Ultra ──
+    try {
+      const ultMeta = await getDoc(doc(db, 'shareData', 'ultra_meta'));
+      if (ultMeta.exists() && ultMeta.data().totalRows > 0) {
+        const meta = ultMeta.data();
+        fbDot('loading', `Ultra: ${meta.totalRows} registros…`);
+        let rows = [];
+        const chunkPromises = [];
+        for (let i = 0; i < meta.chunks; i++) {
+          chunkPromises.push(getDoc(doc(db, 'shareData', `ultra_chunk_${i}`)));
+        }
+        const chunkDocs = await Promise.all(chunkPromises);
+        chunkDocs.forEach(ch => { if (ch.exists()) rows = rows.concat(ch.data().rows); });
+
+        if (rows.length > 0) {
+          ultraRows = rows;
+          loaded = true;
+          const allMonthsU = [...new Set(rows.map(r=>getMonthKey(r.data)).filter(Boolean))].sort();
+          ultraSelectedMonth = allMonthsU[allMonthsU.length-1];
+          setTimeout(() => {
+            renderUltra(true);
+            const tabs = document.querySelectorAll('.nav-tab');
+            if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo ☁';
+          }, 200);
+        }
+      }
+    } catch(e) { console.warn('Ultra load error:', e); }
+
+    if (loaded) {
       fbDot('ok', '☁ Dados carregados');
-      // Go to dashboard if data exists
-      showPage('teciap');
+      setTimeout(() => showPage('teciap'), 150);
     } else {
       fbDot('ok', 'Firebase OK');
     }
