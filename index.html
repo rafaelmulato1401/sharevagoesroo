@@ -183,6 +183,13 @@ window.dispatchEvent(new Event('firebaseReady'));
   .btn-proc:disabled{background:var(--text3);cursor:not-allowed;}
   .btn-clr{background:rgba(185,28,28,.1);border:1px solid rgba(185,28,28,.3);border-radius:7px;padding:9px 16px;font-size:12px;font-weight:700;color:var(--danger);cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:.18s;margin-left:8px;}
   .btn-clr:hover{background:rgba(185,28,28,.22);}
+  .btn-fire{background:rgba(234,88,12,.15);border:1px solid rgba(234,88,12,.4);border-radius:7px;padding:9px 16px;font-size:12px;font-weight:700;color:#ea580c;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:.18s;margin-left:8px;}
+  .btn-fire:hover{background:rgba(234,88,12,.28);}
+  .btn-fire:disabled{background:rgba(234,88,12,.06);color:#9aa3bb;cursor:not-allowed;}
+  .btn-fire-save{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:7px;padding:9px 16px;font-size:12px;font-weight:700;color:#16a34a;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:.18s;margin-left:8px;}
+  .btn-fire-save:hover{background:rgba(34,197,94,.28);}
+  .btn-fire-save:disabled{background:rgba(34,197,94,.06);color:#9aa3bb;cursor:not-allowed;}
+  .btn-clr:hover{background:rgba(185,28,28,.22);}
   .alert{padding:10px 14px;border-radius:7px;font-size:12px;margin-bottom:10px;}
   .alert-ok{background:rgba(26,107,53,.1);border:1px solid rgba(26,107,53,.3);color:var(--accent2);}
   .alert-err{background:rgba(185,28,28,.1);border:1px solid rgba(185,28,28,.3);color:var(--danger);}
@@ -287,9 +294,11 @@ window.dispatchEvent(new Event('firebaseReady'));
     </div>
     <div id="alertTeciap"></div>
     <div class="flist" id="flistTeciap"></div>
-    <div style="display:flex;align-items:center;margin-top:8px;">
+    <div style="display:flex;align-items:center;margin-top:8px;flex-wrap:wrap;gap:4px;">
       <button class="btn-proc" id="btnTeciap" onclick="processTeciap()" disabled>⚡ Processar Teciap</button>
-      <button class="btn-clr" onclick="clearTeciap()">🗑 Limpar</button>
+      <button class="btn-fire-save" id="btnSaveTeciap" onclick="manuallySaveTeciap()" disabled>☁ Salvar no Firebase</button>
+      <button class="btn-fire" id="btnClearFire" onclick="confirmClearFirebase('teciap')">🔥 Limpar Base Firebase</button>
+      <button class="btn-clr" onclick="clearTeciap()">🗑 Limpar Lista</button>
     </div>
   </div>
 </div>
@@ -310,9 +319,11 @@ window.dispatchEvent(new Event('firebaseReady'));
     </div>
     <div id="alertUltra"></div>
     <div class="flist" id="flistUltra"></div>
-    <div style="display:flex;align-items:center;margin-top:8px;">
+    <div style="display:flex;align-items:center;margin-top:8px;flex-wrap:wrap;gap:4px;">
       <button class="btn-proc" id="btnUltra" onclick="processUltra()" disabled>⚡ Processar Ultracargo</button>
-      <button class="btn-clr" onclick="clearUltra()">🗑 Limpar</button>
+      <button class="btn-fire-save" id="btnSaveUltra" onclick="manuallySaveUltra()" disabled>☁ Salvar no Firebase</button>
+      <button class="btn-fire" id="btnClearFireUltra" onclick="confirmClearFirebase('ultra')">🔥 Limpar Base Firebase</button>
+      <button class="btn-clr" onclick="clearUltra()">🗑 Limpar Lista</button>
     </div>
   </div>
 </div>
@@ -602,6 +613,7 @@ async function processTeciap() {
   document.getElementById('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
   setAlert('alertTeciap','ok','✅ '+teciapRows.length+' vagões carregados'+( errs?' ('+errs+' erro(s))':'')+'.');
   btn.textContent='✅ Processado';
+  enableSaveBtns('teciap');
   showSaveButton();
   renderTeciap();
   showPage('teciap');
@@ -656,6 +668,7 @@ async function processUltra() {
   const dedupMsgU = removedU > 0 ? ` <strong>${removedU} duplicatas removidas.</strong>` : ' Sem duplicatas.';
   setAlert('alertUltra','ok','✅ '+ultraRows.length+' registros únicos carregados'+(errs?' ('+errs+' erro(s))':'')+'.'+dedupMsgU);
   btn.textContent='✅ Processado';
+  enableSaveBtns('ultra');
   showSaveButton();
   renderUltra();
   showPage('ultra');
@@ -1415,6 +1428,91 @@ async function autoLoadFromFirebase() {
 function showSaveButton() {
   // Auto-save silently
   setTimeout(() => saveToFirebase(), 800);
+}
+
+
+// ═══════════ FIREBASE MANUAL ACTIONS ═══════════
+
+async function manuallySaveTeciap() {
+  if (!teciapRows.length) { alert('Nenhum dado processado ainda.'); return; }
+  const btn = document.getElementById('btnSaveTeciap');
+  btn.disabled = true; btn.textContent = '⏳ Salvando…';
+  await saveToFirebase();
+  btn.textContent = '✅ Salvo!';
+  setTimeout(() => { btn.textContent = '☁ Salvar no Firebase'; btn.disabled = false; }, 2500);
+}
+
+async function manuallySaveUltra() {
+  if (!ultraRows.length) { alert('Nenhum dado processado ainda.'); return; }
+  const btn = document.getElementById('btnSaveUltra');
+  btn.disabled = true; btn.textContent = '⏳ Salvando…';
+  await saveToFirebase();
+  btn.textContent = '✅ Salvo!';
+  setTimeout(() => { btn.textContent = '☁ Salvar no Firebase'; btn.disabled = false; }, 2500);
+}
+
+async function confirmClearFirebase(type) {
+  const label = type === 'teciap' ? 'Teciap' : 'Ultracargo';
+  const confirmed = confirm(`⚠️ Tem certeza que deseja LIMPAR toda a base ${label} do Firebase?\n\nEssa ação não pode ser desfeita!`);
+  if (!confirmed) return;
+  if (!firebaseReady || !window._db) { alert('Firebase não conectado.'); return; }
+
+  fbDot('loading', 'Limpando base…');
+  try {
+    const db = window._db;
+    const { doc, setDoc, getDoc } = window._fsLib;
+
+    if (type === 'teciap') {
+      // Get chunk count from meta
+      const meta = await getDoc(doc(db, 'shareData', 'teciap_meta'));
+      if (meta.exists()) {
+        const { chunks } = meta.data();
+        // Overwrite meta with zeros
+        await setDoc(doc(db, 'shareData', 'teciap_meta'), { totalRows: 0, chunks: 0, savedAt: new Date().toISOString(), origens: [] });
+        // Clear each chunk
+        for (let i = 0; i < chunks; i++) {
+          await setDoc(doc(db, 'shareData', `teciap_chunk_${i}`), { rows: [] });
+        }
+      }
+      teciapRows = [];
+      document.getElementById('teciapContent').innerHTML = '<div class="empty"><div class="empty-icon">🗑️</div>Base Teciap limpa. Suba novos arquivos.</div>';
+      const tabs = document.querySelectorAll('.nav-tab');
+      if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap';
+      setAlert('alertTeciap', 'info', '🔥 Base Teciap limpa do Firebase com sucesso.');
+
+    } else {
+      const meta = await getDoc(doc(db, 'shareData', 'ultra_meta'));
+      if (meta.exists()) {
+        const { chunks } = meta.data();
+        await setDoc(doc(db, 'shareData', 'ultra_meta'), { totalRows: 0, chunks: 0, savedAt: new Date().toISOString() });
+        for (let i = 0; i < chunks; i++) {
+          await setDoc(doc(db, 'shareData', `ultra_chunk_${i}`), { rows: [] });
+        }
+      }
+      ultraRows = [];
+      document.getElementById('ultraContent').innerHTML = '<div class="empty"><div class="empty-icon">🗑️</div>Base Ultracargo limpa. Suba novos arquivos.</div>';
+      const tabs = document.querySelectorAll('.nav-tab');
+      if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo';
+      setAlert('alertUltra', 'info', '🔥 Base Ultracargo limpa do Firebase com sucesso.');
+    }
+
+    fbDot('ok', '☁ Base limpa');
+  } catch(e) {
+    console.error('Clear error:', e);
+    fbDot('err', 'Erro ao limpar');
+    alert('Erro ao limpar: ' + e.message);
+  }
+}
+
+// Enable manual save buttons after processing
+function enableSaveBtns(type) {
+  if (type === 'teciap') {
+    const b = document.getElementById('btnSaveTeciap');
+    if (b) b.disabled = false;
+  } else {
+    const b = document.getElementById('btnSaveUltra');
+    if (b) b.disabled = false;
+  }
 }
 
 // ═══════════ INIT ═══════════
