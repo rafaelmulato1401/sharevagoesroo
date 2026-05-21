@@ -79,8 +79,8 @@ window.dispatchEvent(new Event('firebaseReady'));
   .card-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--blue);margin-bottom:12px;}
   .card-title span{color:var(--gold);}
   /* CHARTS */
-  .chart-wrap{position:relative;height:180px;}
-  .chart-wrap-lg{position:relative;height:280px;}
+  .chart-wrap{position:relative;height:200px;min-height:200px;}
+  .chart-wrap-lg{position:relative;height:300px;min-height:300px;}
   /* GRID */
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   /* TABLE */
@@ -329,8 +329,16 @@ window.dispatchEvent(new Event('firebaseReady'));
 </div>
 
 <script>
-// Register chart plugins
-Chart.register(ChartDataLabels);
+// Register chart plugins (safe — won't crash if datalabels not loaded)
+try {
+  if (typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    window._datalabelsLoaded = true;
+  }
+} catch(e) {
+  window._datalabelsLoaded = false;
+  console.warn('ChartDataLabels not loaded, continuing without labels');
+}
 
 // ═══════════ STATE ═══════════
 let pendingTeciap = [], pendingUltra = [];
@@ -885,14 +893,14 @@ function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
           }
         }
       },
-      datalabels:{
+      datalabels: window._datalabelsLoaded ? {
         display: ctx => ctx.dataset.type === 'bar',
         anchor:'end', align:'top',
         offset:-2,
         font:{family:'Barlow Condensed',size:10,weight:'700'},
         color: ctx => ctx.dataset.backgroundColor === '#1a3a6b' ? '#1a3a6b' : '#7a5200',
         formatter: v => v > 0 ? v : ''
-      }
+      } : false
     },
     scales:{
       x:{grid:{display:false}, ticks:{font:{family:'Barlow Condensed',size:11},color:'#6b7a99'}},
@@ -1056,13 +1064,13 @@ function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
       legend:{position:'bottom', align:'center',
         labels:{font:{family:'Barlow',size:11,weight:'600'},color:'#6b7a99',boxWidth:14,boxHeight:10,padding:16}},
       tooltip:{mode:'index', intersect:false},
-      datalabels:{
+      datalabels: window._datalabelsLoaded ? {
         display: ctx => ctx.dataset.type === 'bar' || ctx.chart.config.type === 'bar',
         anchor:'end', align:'top', offset:-2,
         font:{family:'Barlow Condensed',size:10,weight:'700'},
         color:'#1a3a6b',
         formatter: v => v > 0 ? v : ''
-      }
+      } : false
     },
     scales:{
       x:{grid:{display:false}, ticks:{font:{family:'Barlow Condensed',size:11},color:'#6b7a99'}},
