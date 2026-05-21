@@ -866,7 +866,8 @@ function renderTeciap(firstTime = true) {
     </div>
   `;
 
-  renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth);
+  // Wait for DOM to paint before rendering charts
+  setTimeout(() => renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth), 80);
 }
 
 function renderTeciapCharts(rows, allDays, allMonths, rowsMes, curMonth) {
@@ -1053,7 +1054,7 @@ function renderUltra(firstTime = true) {
     </div>
   `;
 
-  renderUltraCharts(rows, allDays, allMonths, rowsMes);
+  setTimeout(() => renderUltraCharts(rows, allDays, allMonths, rowsMes), 80);
 }
 
 function renderUltraCharts(rows, allDays, allMonths, rowsMes) {
