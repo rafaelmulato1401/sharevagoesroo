@@ -8,6 +8,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB7aqyt-QbxSkd3YqAgu3227tEtcx0yxkg",
+  authDomain: "sharevagoesroo.firebaseapp.com",
+  projectId: "sharevagoesroo",
+  storageBucket: "sharevagoesroo.firebasestorage.app",
+  messagingSenderId: "725490974670",
+  appId: "1:725490974670:web:f7931f80907be62359f59f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+window._db = db;
+window._fsLib = { doc, setDoc, getDoc, collection, getDocs };
+window._firebaseReady = true;
+window.dispatchEvent(new Event('firebaseReady'));
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -30,6 +51,15 @@
   .nav-tab.active{color:var(--gold);background:rgba(240,165,0,.15);border-color:rgba(240,165,0,.4);}
   .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
   .last-update{font-size:11px;color:rgba(255,255,255,.5);}
+  .fb-status{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.4px;}
+  .fb-dot{width:7px;height:7px;border-radius:50%;background:#9aa3bb;flex-shrink:0;transition:background .3s;}
+  .fb-dot.ok{background:#22c55e;}
+  .fb-dot.err{background:#ef4444;}
+  .fb-dot.loading{background:#f0a500;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .fb-save-btn{background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.4);border-radius:6px;padding:5px 12px;color:#86efac;font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:all .2s;display:none;}
+  .fb-save-btn:hover{background:rgba(34,197,94,.35);}
+  .fb-save-btn.show{display:block;}
   .last-update span{color:var(--gold-light);}
   /* PAGES */
   .page{display:none;padding:20px;animation:fadeIn .2s ease;}
@@ -197,6 +227,8 @@
     <div class="nav-tab" onclick="showPage('upUltra')">Upload Ultra</div>
   </div>
   <div class="nav-right">
+    <div class="fb-status"><div class="fb-dot loading" id="fbDot"></div><span id="fbLabel">Firebase…</span></div>
+    <button class="fb-save-btn" id="fbSaveBtn" onclick="saveToFirebase()">☁ Salvar no Firebase</button>
     <button class="btn-export" onclick="openExport()" title="Gerar imagem consolidada para e-mail">📧 Gerar Imagem E-mail</button>
     <div class="last-update">Atualizado: <span id="lastUpdate">—</span></div>
   </div>
@@ -559,6 +591,7 @@ async function processTeciap() {
   document.getElementById('lastUpdate').textContent = new Date().toLocaleString('pt-BR');
   setAlert('alertTeciap','ok','✅ '+teciapRows.length+' vagões carregados'+( errs?' ('+errs+' erro(s))':'')+'.');
   btn.textContent='✅ Processado';
+  showSaveButton();
   renderTeciap();
   showPage('teciap');
 }
@@ -595,6 +628,7 @@ async function processUltra() {
   document.getElementById('lastUpdate').textContent=new Date().toLocaleString('pt-BR');
   setAlert('alertUltra','ok','✅ '+ultraRows.length+' registros carregados'+(errs?' ('+errs+' erro(s))':'')+'.');
   btn.textContent='✅ Processado';
+  showSaveButton();
   renderUltra();
   showPage('ultra');
 }
@@ -1216,6 +1250,164 @@ function downloadImg() {
   a.download = 'Share_Vagoes_INPASA_'+new Date().toISOString().slice(0,10)+'.png';
   a.href = exportCanvas.toDataURL('image/png');
   a.click();
+}
+
+
+// ═══════════ FIREBASE ═══════════
+let firebaseReady = false;
+
+function fbDot(state, label) {
+  const dot = document.getElementById('fbDot');
+  const lbl = document.getElementById('fbLabel');
+  if (dot) { dot.className = 'fb-dot ' + state; }
+  if (lbl) lbl.textContent = label;
+}
+
+// Wait for Firebase to be ready
+window.addEventListener('firebaseReady', () => {
+  firebaseReady = true;
+  fbDot('ok', 'Firebase OK');
+  // Auto-load saved data on startup
+  autoLoadFromFirebase();
+});
+
+// Timeout fallback if Firebase fails
+setTimeout(() => {
+  if (!firebaseReady) fbDot('err', 'Firebase off');
+}, 8000);
+
+async function saveToFirebase() {
+  if (!firebaseReady || !window._db) {
+    alert('Firebase não está conectado ainda. Aguarde.');
+    return;
+  }
+  const btn = document.getElementById('fbSaveBtn');
+  btn.textContent = '⏳ Salvando…';
+
+  try {
+    const db = window._db;
+    const { doc, setDoc } = window._fsLib;
+
+    // Save teciap data in chunks (Firestore has 1MB doc limit)
+    if (teciapRows.length > 0) {
+      const chunkSize = 400;
+      const chunks = [];
+      for (let i = 0; i < teciapRows.length; i += chunkSize) {
+        chunks.push(teciapRows.slice(i, i + chunkSize));
+      }
+      // Save metadata doc
+      await setDoc(doc(db, 'shareData', 'teciap_meta'), {
+        totalRows: teciapRows.length,
+        chunks: chunks.length,
+        savedAt: new Date().toISOString(),
+        origens: [...new Set(teciapRows.map(r => r.origem))],
+      });
+      // Save each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        await setDoc(doc(db, 'shareData', `teciap_chunk_${i}`), {
+          rows: chunks[i]
+        });
+      }
+    }
+
+    // Save ultra data
+    if (ultraRows.length > 0) {
+      const chunkSize = 400;
+      const chunks = [];
+      for (let i = 0; i < ultraRows.length; i += chunkSize) {
+        chunks.push(ultraRows.slice(i, i + chunkSize));
+      }
+      await setDoc(doc(db, 'shareData', 'ultra_meta'), {
+        totalRows: ultraRows.length,
+        chunks: chunks.length,
+        savedAt: new Date().toISOString(),
+      });
+      for (let i = 0; i < chunks.length; i++) {
+        await setDoc(doc(db, 'shareData', `ultra_chunk_${i}`), {
+          rows: chunks[i]
+        });
+      }
+    }
+
+    btn.textContent = '✅ Salvo!';
+    btn.style.background = 'rgba(34,197,94,.35)';
+    fbDot('ok', 'Dados salvos');
+    setTimeout(() => {
+      btn.textContent = '☁ Salvar no Firebase';
+      btn.style.background = '';
+    }, 3000);
+
+  } catch(e) {
+    console.error('Firebase save error:', e);
+    btn.textContent = '❌ Erro ao salvar';
+    fbDot('err', 'Erro Firebase');
+    alert('Erro ao salvar no Firebase: ' + e.message);
+    setTimeout(() => { btn.textContent = '☁ Salvar no Firebase'; }, 3000);
+  }
+}
+
+async function autoLoadFromFirebase() {
+  if (!firebaseReady || !window._db) return;
+  fbDot('loading', 'Carregando…');
+
+  try {
+    const db = window._db;
+    const { doc, getDoc } = window._fsLib;
+
+    // Try to load teciap
+    const tecMeta = await getDoc(doc(db, 'shareData', 'teciap_meta'));
+    if (tecMeta.exists()) {
+      const meta = tecMeta.data();
+      let rows = [];
+      for (let i = 0; i < meta.chunks; i++) {
+        const chunk = await getDoc(doc(db, 'shareData', `teciap_chunk_${i}`));
+        if (chunk.exists()) rows = rows.concat(chunk.data().rows);
+      }
+      if (rows.length > 0) {
+        teciapRows = rows;
+        document.getElementById('lastUpdate').textContent = new Date(meta.savedAt).toLocaleString('pt-BR');
+        renderTeciap();
+        // Show firebase badge on nav tab
+        const tabs = document.querySelectorAll('.nav-tab');
+        if (tabs[0]) tabs[0].textContent = 'Dashboard Teciap ☁';
+      }
+    }
+
+    // Try to load ultra
+    const ultMeta = await getDoc(doc(db, 'shareData', 'ultra_meta'));
+    if (ultMeta.exists()) {
+      const meta = ultMeta.data();
+      let rows = [];
+      for (let i = 0; i < meta.chunks; i++) {
+        const chunk = await getDoc(doc(db, 'shareData', `ultra_chunk_${i}`));
+        if (chunk.exists()) rows = rows.concat(chunk.data().rows);
+      }
+      if (rows.length > 0) {
+        ultraRows = rows;
+        renderUltra();
+        const tabs = document.querySelectorAll('.nav-tab');
+        if (tabs[1]) tabs[1].textContent = 'Dashboard Ultracargo ☁';
+      }
+    }
+
+    if (teciapRows.length > 0 || ultraRows.length > 0) {
+      fbDot('ok', '☁ Dados carregados');
+      // Go to dashboard if data exists
+      showPage('teciap');
+    } else {
+      fbDot('ok', 'Firebase OK');
+    }
+
+  } catch(e) {
+    console.warn('Firebase load error:', e);
+    fbDot('err', 'Erro ao carregar');
+  }
+}
+
+// Show save button after processing
+function showSaveButton() {
+  const btn = document.getElementById('fbSaveBtn');
+  if (btn) btn.classList.add('show');
 }
 
 // ═══════════ INIT ═══════════
