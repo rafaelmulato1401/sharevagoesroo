@@ -548,27 +548,31 @@ function parseUltra(raw) {
   }
   const headers = raw[headerIdx].map(c=>String(c).toLowerCase().trim());
   const ci = n => headers.findIndex(h=>h.includes(n));
-  const iData=0, iTerm=ci('terminal'), iProg=ci('programado vt')>-1?ci('programado vt'):ci('progra'),
-        iEnc=ci('encostado vt')>-1?ci('encostado vt'):ci('encosta'),
-        iFat=ci('faturado vt')>-1?ci('faturado vt'):ci('fatura'),
-        iPm3=ci('programado m'),iEm3=ci('encostado m'),iFm3=ci('faturado m'),
-        iMes=ci('mês')>-1?ci('mês'):ci('mes');
+  const iData=ci('data')>-1?ci('data'):0;
+  const iTerm=ci('terminal');
+  const iProg=ci('programado vt')>-1?ci('programado vt'):ci('progra');
+  const iEnc=ci('encostado vt')>-1?ci('encostado vt'):ci('encosta');
+  const iFat=ci('faturado vt')>-1?ci('faturado vt'):ci('fatura');
+  const iPm3=ci('programado m'), iEm3=ci('encostado m'), iFm3=ci('faturado m');
 
   const rows = [];
   for (let i = headerIdx+1; i < raw.length; i++) {
     const row = raw[i];
     const d = parseDate(row[iData]);
     if (!d) continue;
+    // Derive mes automatically from date — no column needed
+    const dateObj = new Date(d + 'T00:00:00');
+    const mes = isNaN(dateObj) ? '' : ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][dateObj.getMonth()];
     rows.push({
       data:d,
       terminal: String(row[iTerm]||'Ultracargo').trim(),
-      progVT: parseFloat(row[iProg])||0,
-      encVT:  parseFloat(row[iEnc])||0,
-      fatVT:  parseFloat(row[iFat])||0,
-      progM3: parseFloat(row[iPm3])||0,
-      encM3:  parseFloat(row[iEm3])||0,
-      fatM3:  parseFloat(row[iFm3])||0,
-      mes:    String(row[iMes]||'').toLowerCase().trim()
+      progVT: parseFloat(String(row[iProg]||'0').replace(',','.'))||0,
+      encVT:  parseFloat(String(row[iEnc]||'0').replace(',','.'))||0,
+      fatVT:  parseFloat(String(row[iFat]||'0').replace(',','.'))||0,
+      progM3: parseFloat(String(row[iPm3]||'0').replace(',','.'))||0,
+      encM3:  parseFloat(String(row[iEm3]||'0').replace(',','.'))||0,
+      fatM3:  parseFloat(String(row[iFm3]||'0').replace(',','.'))||0,
+      mes
     });
   }
   return rows;
