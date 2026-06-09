@@ -309,12 +309,12 @@ window.dispatchEvent(new Event('firebaseReady'));
     </div>
     <div id="alertTeciap"></div>
     <div class="flist" id="flistTeciap"></div>
-    <div style="display:flex;align-items:center;margin-top:8px;flex-wrap:wrap;gap:4px;">
-      <button class="btn-proc" id="btnTeciap" onclick="processTeciap()" disabled>⚡ Processar Teciap</button>
-      <button class="btn-fire-save" id="btnSaveTeciap" onclick="manuallySaveTeciap()" disabled>☁ Salvar no Firebase</button>
-      <button class="btn-fire" id="btnClearFire" onclick="confirmClearFirebase('teciap')">🔥 Limpar Base Firebase</button>
+    <div style="display:flex;align-items:center;margin-top:8px;gap:6px;flex-wrap:nowrap;">
+      <button class="btn-proc" id="btnTeciap" onclick="processTeciap()" disabled>⚡ Processar</button>
+      <button class="btn-fire-save" id="btnSaveTeciap" onclick="manuallySaveTeciap()" disabled>☁ Firebase</button>
+      <button class="btn-fire" id="btnClearFire" onclick="confirmClearFirebase('teciap')">🔥 Limpar Base</button>
       <button class="btn-fire" onclick="openDeleteDate('teciap')" style="background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.4);color:var(--danger)">🗓 Excluir Data</button>
-      <button class="btn-clr" onclick="clearTeciap()">🗑 Limpar Lista</button>
+      <button class="btn-clr" onclick="clearTeciap()">🗑 Lista</button>
     </div>
   </div>
 </div>
@@ -335,12 +335,12 @@ window.dispatchEvent(new Event('firebaseReady'));
     </div>
     <div id="alertUltra"></div>
     <div class="flist" id="flistUltra"></div>
-    <div style="display:flex;align-items:center;margin-top:8px;flex-wrap:wrap;gap:4px;">
-      <button class="btn-proc" id="btnUltra" onclick="processUltra()" disabled>⚡ Processar Ultracargo</button>
-      <button class="btn-fire-save" id="btnSaveUltra" onclick="manuallySaveUltra()" disabled>☁ Salvar no Firebase</button>
-      <button class="btn-fire" id="btnClearFireUltra" onclick="confirmClearFirebase('ultra')">🔥 Limpar Base Firebase</button>
+    <div style="display:flex;align-items:center;margin-top:8px;gap:6px;flex-wrap:nowrap;">
+      <button class="btn-proc" id="btnUltra" onclick="processUltra()" disabled>⚡ Processar</button>
+      <button class="btn-fire-save" id="btnSaveUltra" onclick="manuallySaveUltra()" disabled>☁ Firebase</button>
+      <button class="btn-fire" id="btnClearFireUltra" onclick="confirmClearFirebase('ultra')">🔥 Limpar Base</button>
       <button class="btn-fire" onclick="openDeleteDate('ultra')" style="background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.4);color:var(--danger)">🗓 Excluir Data</button>
-      <button class="btn-clr" onclick="clearUltra()">🗑 Limpar Lista</button>
+      <button class="btn-clr" onclick="clearUltra()">🗑 Lista</button>
     </div>
   </div>
 </div>
