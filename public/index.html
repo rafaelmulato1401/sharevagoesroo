@@ -186,6 +186,21 @@ window.dispatchEvent(new Event('firebaseReady'));
   .btn-fire{background:rgba(234,88,12,.15);border:1px solid rgba(234,88,12,.4);border-radius:7px;padding:9px 16px;font-size:12px;font-weight:700;color:#ea580c;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:.18s;margin-left:8px;}
   .btn-fire:hover{background:rgba(234,88,12,.28);}
   .btn-fire:disabled{background:rgba(234,88,12,.06);color:#9aa3bb;cursor:not-allowed;}
+  .del-modal{position:fixed;inset:0;background:rgba(5,15,40,.75);z-index:2000;display:none;align-items:center;justify-content:center;}
+  .del-modal.open{display:flex;}
+  .del-box{background:#fff;border-radius:12px;padding:24px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .del-title{font-family:"Barlow Condensed",sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;color:var(--blue);margin-bottom:4px;}
+  .del-sub{font-size:11px;color:var(--text2);margin-bottom:16px;}
+  .del-select{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:"Barlow",sans-serif;color:var(--text);background:var(--bg);margin-bottom:14px;cursor:pointer;}
+  .del-select:focus{outline:none;border-color:var(--blue);}
+  .del-info{background:var(--bg3);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--text2);margin-bottom:16px;min-height:36px;line-height:1.6;}
+  .del-info strong{color:var(--danger);}
+  .del-actions{display:flex;gap:8px;justify-content:flex-end;}
+  .del-btn-cancel{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 18px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;}
+  .del-btn-cancel:hover{background:var(--border);}
+  .del-btn-confirm{background:var(--danger);border:none;border-radius:7px;padding:9px 18px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;transition:.18s;}
+  .del-btn-confirm:hover{background:#991b1b;}
+  .del-btn-confirm:disabled{background:var(--text3);cursor:not-allowed;}
   .btn-fire-save{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:7px;padding:9px 16px;font-size:12px;font-weight:700;color:#16a34a;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;transition:.18s;margin-left:8px;}
   .btn-fire-save:hover{background:rgba(34,197,94,.28);}
   .btn-fire-save:disabled{background:rgba(34,197,94,.06);color:#9aa3bb;cursor:not-allowed;}
@@ -298,6 +313,7 @@ window.dispatchEvent(new Event('firebaseReady'));
       <button class="btn-proc" id="btnTeciap" onclick="processTeciap()" disabled>⚡ Processar Teciap</button>
       <button class="btn-fire-save" id="btnSaveTeciap" onclick="manuallySaveTeciap()" disabled>☁ Salvar no Firebase</button>
       <button class="btn-fire" id="btnClearFire" onclick="confirmClearFirebase('teciap')">🔥 Limpar Base Firebase</button>
+      <button class="btn-fire" onclick="openDeleteDate('teciap')" style="background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.4);color:var(--danger)">🗓 Excluir Data</button>
       <button class="btn-clr" onclick="clearTeciap()">🗑 Limpar Lista</button>
     </div>
   </div>
@@ -323,6 +339,7 @@ window.dispatchEvent(new Event('firebaseReady'));
       <button class="btn-proc" id="btnUltra" onclick="processUltra()" disabled>⚡ Processar Ultracargo</button>
       <button class="btn-fire-save" id="btnSaveUltra" onclick="manuallySaveUltra()" disabled>☁ Salvar no Firebase</button>
       <button class="btn-fire" id="btnClearFireUltra" onclick="confirmClearFirebase('ultra')">🔥 Limpar Base Firebase</button>
+      <button class="btn-fire" onclick="openDeleteDate('ultra')" style="background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.4);color:var(--danger)">🗓 Excluir Data</button>
       <button class="btn-clr" onclick="clearUltra()">🗑 Limpar Lista</button>
     </div>
   </div>
@@ -548,27 +565,31 @@ function parseUltra(raw) {
   }
   const headers = raw[headerIdx].map(c=>String(c).toLowerCase().trim());
   const ci = n => headers.findIndex(h=>h.includes(n));
-  const iData=0, iTerm=ci('terminal'), iProg=ci('programado vt')>-1?ci('programado vt'):ci('progra'),
-        iEnc=ci('encostado vt')>-1?ci('encostado vt'):ci('encosta'),
-        iFat=ci('faturado vt')>-1?ci('faturado vt'):ci('fatura'),
-        iPm3=ci('programado m'),iEm3=ci('encostado m'),iFm3=ci('faturado m'),
-        iMes=ci('mês')>-1?ci('mês'):ci('mes');
+  const iData=ci('data')>-1?ci('data'):0;
+  const iTerm=ci('terminal');
+  const iProg=ci('programado vt')>-1?ci('programado vt'):ci('progra');
+  const iEnc=ci('encostado vt')>-1?ci('encostado vt'):ci('encosta');
+  const iFat=ci('faturado vt')>-1?ci('faturado vt'):ci('fatura');
+  const iPm3=ci('programado m'), iEm3=ci('encostado m'), iFm3=ci('faturado m');
 
   const rows = [];
   for (let i = headerIdx+1; i < raw.length; i++) {
     const row = raw[i];
     const d = parseDate(row[iData]);
     if (!d) continue;
+    // Derive mes automatically from date — no column needed
+    const dateObj = new Date(d + 'T00:00:00');
+    const mes = isNaN(dateObj) ? '' : ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][dateObj.getMonth()];
     rows.push({
       data:d,
       terminal: String(row[iTerm]||'Ultracargo').trim(),
-      progVT: parseFloat(row[iProg])||0,
-      encVT:  parseFloat(row[iEnc])||0,
-      fatVT:  parseFloat(row[iFat])||0,
-      progM3: parseFloat(row[iPm3])||0,
-      encM3:  parseFloat(row[iEm3])||0,
-      fatM3:  parseFloat(row[iFm3])||0,
-      mes:    String(row[iMes]||'').toLowerCase().trim()
+      progVT: parseFloat(String(row[iProg]||'0').replace(',','.'))||0,
+      encVT:  parseFloat(String(row[iEnc]||'0').replace(',','.'))||0,
+      fatVT:  parseFloat(String(row[iFat]||'0').replace(',','.'))||0,
+      progM3: parseFloat(String(row[iPm3]||'0').replace(',','.'))||0,
+      encM3:  parseFloat(String(row[iEm3]||'0').replace(',','.'))||0,
+      fatM3:  parseFloat(String(row[iFm3]||'0').replace(',','.'))||0,
+      mes
     });
   }
   return rows;
@@ -1689,6 +1710,81 @@ function enableSaveBtns(type) {
   }
 }
 
+
+// ═══════════ DELETE DATE ═══════════
+let _delType = null;
+
+function openDeleteDate(type) {
+  _delType = type;
+  const rows = type === 'teciap' ? teciapRows : ultraRows;
+  if (!rows.length) { alert('Nenhum dado carregado ainda. Processe os arquivos primeiro.'); return; }
+
+  document.getElementById('delTitle').textContent = type === 'teciap' ? 'Excluir Data — Teciap' : 'Excluir Data — Ultracargo';
+  document.getElementById('delSub').textContent   = type === 'teciap'
+    ? 'Remove todos os vagões de uma data específica do Teciap.'
+    : 'Remove todos os registros de uma data específica da Ultracargo.';
+  document.getElementById('delInfo').innerHTML    = 'Selecione uma data para ver quantos registros serão excluídos.';
+  document.getElementById('delConfirm').disabled  = true;
+  document.getElementById('delConfirm').textContent = '🗑 Excluir';
+
+  const dates = [...new Set(rows.map(r => r.data).filter(Boolean))].sort().reverse();
+  const sel = document.getElementById('delSelect');
+  sel.innerHTML = '<option value="">Selecione uma data…</option>' +
+    dates.map(d => {
+      const count = rows.filter(r => r.data === d).length;
+      const label = new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
+      return '<option value="' + d + '">' + label + ' — ' + count + ' registro(s)</option>';
+    }).join('');
+
+  document.getElementById('delModal').classList.add('open');
+}
+
+function onDelDateChange() {
+  const date = document.getElementById('delSelect').value;
+  const btn  = document.getElementById('delConfirm');
+  if (!date) {
+    document.getElementById('delInfo').innerHTML = 'Selecione uma data para ver quantos registros serão excluídos.';
+    btn.disabled = true; return;
+  }
+  const rows  = _delType === 'teciap' ? teciapRows : ultraRows;
+  const count = rows.filter(r => r.data === date).length;
+  const label = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR');
+  document.getElementById('delInfo').innerHTML =
+    'Serão excluídos <strong>' + count + ' registro(s)</strong> do dia <strong>' + label + '</strong>.<br>Esta ação também atualizará o Firebase automaticamente.';
+  btn.disabled = false;
+}
+
+async function confirmDeleteDate() {
+  const date = document.getElementById('delSelect').value;
+  if (!date) return;
+  const label = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR');
+  const btn = document.getElementById('delConfirm');
+  btn.disabled = true; btn.textContent = '⏳ Excluindo…';
+
+  if (_delType === 'teciap') {
+    const before = teciapRows.length;
+    teciapRows = teciapRows.filter(r => r.data !== date);
+    const removed = before - teciapRows.length;
+    await saveToFirebase();
+    renderTeciap(true);
+    setAlert('alertTeciap', 'ok', '✅ ' + removed + ' registro(s) do dia ' + label + ' removidos do Teciap e salvos no Firebase.');
+  } else {
+    const before = ultraRows.length;
+    ultraRows = ultraRows.filter(r => r.data !== date);
+    const removed = before - ultraRows.length;
+    await saveToFirebase();
+    renderUltra(true);
+    setAlert('alertUltra', 'ok', '✅ ' + removed + ' registro(s) do dia ' + label + ' removidos da Ultracargo e salvos no Firebase.');
+  }
+
+  closeDeleteDate();
+}
+
+function closeDeleteDate() {
+  document.getElementById('delModal').classList.remove('open');
+  _delType = null;
+}
+
 // ═══════════ INIT ═══════════
 showPage('upTeciap');
 </script>
@@ -1714,5 +1810,21 @@ showPage('upTeciap');
 <!-- ══════════════ EMAIL CARD (off-screen render) ══════════════ -->
 <div id="emailCard"></div>
 
+
+<!-- DELETE DATE MODAL -->
+<div class="del-modal" id="delModal">
+  <div class="del-box">
+    <div class="del-title" id="delTitle">Excluir Data</div>
+    <div class="del-sub" id="delSub">Selecione a data que deseja remover dos dados</div>
+    <select class="del-select" id="delSelect" onchange="onDelDateChange()">
+      <option value="">Selecione uma data…</option>
+    </select>
+    <div class="del-info" id="delInfo">Selecione uma data para ver quantos registros serão excluídos.</div>
+    <div class="del-actions">
+      <button class="del-btn-cancel" onclick="closeDeleteDate()">Cancelar</button>
+      <button class="del-btn-confirm" id="delConfirm" onclick="confirmDeleteDate()" disabled>🗑 Excluir</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
